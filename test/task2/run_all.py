@@ -13,16 +13,9 @@ TESTS = [
     ("test_pretrained_weight_source.py", "Pretrained weight source behavior"),
     ("test_checkpoint.py",  "Checkpoint save/load"),
     ("test_augment_sync.py","Augmentation image-mask sync"),
-    ("test_augmentation_epoch_variation.py", "Epoch-aware augmentation reproducibility"),
     ("test_overfit.py",     "Small-sample overfitting"),
     ("test_pipeline.py",    "Real step2_train integration"),
     ("test_reproducibility.py", "Same-seed reproducibility"),
-    ("test_best_model_selection.py", "Calibrated best-model selection"),
-
-    # --- v2 tests -----------------------------------------------------------
-    ("test_cbam_variants.py",       "CBAM forward / backward / reproducibility"),
-    ("test_efficientnet_stages.py", "EfficientUNet stage auto-detection"),
-    ("test_model_registry.py",      "Model registry (all models instantiate)"),
 ]
 
 

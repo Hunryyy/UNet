@@ -29,6 +29,7 @@ def summarize_prediction(name, pred_binary, label):
 def main():
     print_header("TASK 3 TEST 4: Small-crop end-to-end smoke test")
 
+    assert CHECKPOINT_PATH.exists(), f"Missing checkpoint: {CHECKPOINT_PATH}"
     assert WEIGHT_PATH.exists(), f"Missing bundled pretrained weight: {WEIGHT_PATH}"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,12 +43,9 @@ def main():
 
     print("\n[4.2] Build model and load checkpoint")
     model = step3_predict.build_model("res34", device)
-    if CHECKPOINT_PATH.exists():
-        model = step3_predict.load_checkpoint(model, str(CHECKPOINT_PATH), device)
-        print("  Model build + checkpoint load succeeded  OK")
-    else:
-        print(f"  Checkpoint missing, running with randomly initialised weights: {CHECKPOINT_PATH}")
+    model = step3_predict.load_checkpoint(model, str(CHECKPOINT_PATH), device)
     model.eval()
+    print("  Model build + checkpoint load succeeded  OK")
 
     print("\n[4.3] No-overlap inference is deterministic on the same crop")
     prob_a = step3_predict.sliding_window_predict(
