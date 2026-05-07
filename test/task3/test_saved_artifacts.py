@@ -23,22 +23,15 @@ def main():
     print_header("TASK 3 TEST 2: Saved artifact integrity")
 
     label = load_test_label()
-    records = load_experiment_records()
-    if not records:
-        print("  Official artifacts are not present in this checkout; skipping artifact validation.")
-        return 0
     record_index = {
         record["exp_id"]: record
-        for record in records
+        for record in load_experiment_records()
         if isinstance(record, dict) and "exp_id" in record
     }
 
     for exp_id, exp_name in OFFICIAL_EXPERIMENTS:
         print(f"\n[2.{OFFICIAL_EXPERIMENTS.index((exp_id, exp_name)) + 1}] {exp_name}")
         artifacts = load_official_artifacts(exp_id)
-        if artifacts is None:
-            print(f"  {exp_id}: missing saved outputs, skipping")
-            continue
         results = artifacts["results"]
         pred_binary = artifacts["predict"]
         prob_map = artifacts["prob"]

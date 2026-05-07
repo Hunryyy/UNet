@@ -56,12 +56,6 @@ def load_source_label():
     return io.imread(SRC_LABEL)
 
 
-def _add_code_dir_to_path():
-    import sys
-    if CODE_DIR not in sys.path:
-        sys.path.insert(0, CODE_DIR)
-
-
 def source_shape():
     return load_source_image().shape[:2]
 
@@ -97,23 +91,38 @@ def expected_positions():
     return positions
 
 
-def choose_val_block():
-    _add_code_dir_to_path()
-    from step1_crop_dataset import choose_val_block as _choose_val_block
-    from step1_crop_dataset import compute_axis_positions
+def choose_val_rows():
+    h, _ = source_shape()
+    n_rows, _ = grid_shape()
+    y_positions = [window_for_position(row, 0)[0] for row in range(n_rows)]
+    target_val = int(round(n_rows * (1.0 - TRAIN_RATIO)))
+    target_val = max(1, min(n_rows, target_val))
 
-    h, w = source_shape()
-    y_positions = compute_axis_positions(h, TILE_SIZE, TILE_SIZE)
-    x_positions = compute_axis_positions(w, TILE_SIZE, TILE_SIZE)
-    return _choose_val_block(y_positions, x_positions, TILE_SIZE, TRAIN_RATIO)
+    overlap_rows = set()
+    for row in range(n_rows - 1):
+        if y_positions[row] + TILE_SIZE > y_positions[row + 1]:
+            overlap_rows.add(row)
+            overlap_rows.add(row + 1)
+
+    best_rows = None
+    best_score = None
+    for start in range(0, n_rows - target_val + 1):
+        rows = set(range(start, start + target_val))
+        overlap_hit = len(rows & overlap_rows)
+        center_distance = abs((start + (target_val - 1) / 2.0) - (n_rows - 1) / 2.0)
+        score = (overlap_hit, center_distance, start)
+        if best_score is None or score < best_score:
+            best_score = score
+            best_rows = rows
+    return best_rows
 
 
 def expected_split_positions():
-    val_block = choose_val_block()
+    val_rows = choose_val_rows()
     train_positions = set()
     val_positions = set()
     for row, col, _, _ in expected_positions():
-        if row in val_block["rows"] and col in val_block["cols"]:
+        if row in val_rows:
             val_positions.add((row, col))
         else:
             train_positions.add((row, col))

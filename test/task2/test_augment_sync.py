@@ -17,14 +17,13 @@ import torch
 import imgaug
 from imgaug import augmenters as iaa
 
-from _task2_common import CODE_DIR, DATA_MEAN, DATA_STD, ensure_baseline_dataset_rebuilt
+from _task2_common import CODE_DIR, DATA_MEAN, DATA_STD
 
 SEED = 42
 
 
 def main():
     os.chdir(CODE_DIR)
-    ensure_baseline_dataset_rebuilt()
 
     print("=" * 60)
     print("TEST 5: Augmentation image-mask synchronization")

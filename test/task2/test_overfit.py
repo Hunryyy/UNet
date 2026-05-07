@@ -17,7 +17,7 @@ sys.path.insert(0, TEST_DIR)
 import torch
 from torch.utils.data import DataLoader, Subset
 
-from _task2_common import CODE_DIR, DATA_MEAN, DATA_STD, ensure_baseline_dataset_rebuilt, pushd, set_seed
+from _task2_common import CODE_DIR, DATA_MEAN, DATA_STD, pushd, set_seed
 from dataset import MyDataset
 from unet_model import Res34UNet_light
 
@@ -31,7 +31,6 @@ MIN_LOSS_DROP_RATIO = 0.90
 
 def main():
     set_seed()
-    ensure_baseline_dataset_rebuilt()
 
     print("=" * 60)
     print("TEST 1: Small-sample overfitting")

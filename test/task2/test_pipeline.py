@@ -20,7 +20,7 @@ sys.path.insert(0, TEST_DIR)
 
 import torch
 
-from _task2_common import CODE_DIR, ensure_baseline_dataset_rebuilt, make_dataset_subset, pushd, set_seed
+from _task2_common import CODE_DIR, make_dataset_subset, pushd, set_seed
 import step2_train
 from eval import eval_net
 from unet_model import Res34UNet_light
@@ -30,7 +30,6 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def main():
     set_seed()
-    ensure_baseline_dataset_rebuilt()
 
     print("=" * 60)
     print("TEST 6: Real step2_train integration")
@@ -61,8 +60,8 @@ def main():
             model = Res34UNet_light().to(DEVICE)
             history = step2_train.train_net(model, DEVICE, config)
 
-        best_ckpt = ckpt_dir / "task2_smoke_res34_best.pth"
-        history_json = ckpt_dir / "task2_smoke_res34_history.json"
+        best_ckpt = ckpt_dir / "task2_smoke_best.pth"
+        history_json = ckpt_dir / "task2_smoke_history.json"
 
         print("\n[6.2] Output artifact checks")
         assert best_ckpt.exists(), f"Best checkpoint not found: {best_ckpt}"
@@ -74,20 +73,13 @@ def main():
         with open(history_json, "r") as f:
             history_disk = json.load(f)
 
-        for key in [
-            "train_loss", "val_iou", "val_iou_fixed", "val_best_threshold", "lr",
-            "best_val_iou", "best_val_iou_fixed", "final_val_iou", "final_val_iou_fixed",
-            "best_epoch", "best_threshold", "selection_metric",
-        ]:
+        for key in ["train_loss", "val_iou", "lr", "best_val_iou", "final_val_iou", "best_epoch"]:
             assert key in history, f"Missing history key in return value: {key}"
             assert key in history_disk, f"Missing history key on disk: {key}"
 
         assert len(history["train_loss"]) == 1, f"Expected 1 epoch, got {len(history['train_loss'])}"
         assert len(history["val_iou"]) == 1, f"Expected 1 val score, got {len(history['val_iou'])}"
-        assert len(history["val_iou_fixed"]) == 1
-        assert len(history["val_best_threshold"]) == 1
         assert history["best_epoch"] == 1, f"Single epoch run should have best_epoch=1, got {history['best_epoch']}"
-        assert history["selection_metric"] == "calibrated_miou"
         print(f"  Returned history: {history}")
 
         print("\n[6.4] Reload best checkpoint and re-evaluate")
@@ -107,10 +99,10 @@ def main():
             reloaded.load_state_dict(torch.load(best_ckpt, map_location=DEVICE))
             reloaded_iou = eval_net(reloaded, val_loader, DEVICE)
 
-        print(f"  Saved best IoU@0.5: {history['best_val_iou_fixed']:.6f}")
-        print(f"  Reloaded IoU@0.5:   {reloaded_iou:.6f}")
-        assert abs(reloaded_iou - history["best_val_iou_fixed"]) < 1e-6, (
-            "Reloaded checkpoint does not reproduce saved fixed-threshold IoU"
+        print(f"  Saved best IoU: {history['best_val_iou']:.6f}")
+        print(f"  Reloaded IoU:   {reloaded_iou:.6f}")
+        assert abs(reloaded_iou - history["best_val_iou"]) < 1e-6, (
+            "Reloaded checkpoint does not reproduce saved best IoU"
         )
 
     print("\n" + "=" * 60)
