@@ -6,39 +6,68 @@ from unet_model import Res34UNet_light
 
 
 class Res34UNet_CBAM(Res34UNet_light):
-    def __init__(self, cbam_encoder=True, cbam_decoder=True, cbam_skip=True,
+    def __init__(self, cbam_mode="adaptive",
+                 cbam_encoder=True, cbam_decoder=True, cbam_skip=True,
                  cbam_reduction=16, init_seed=42):
+        cbam_encoder, cbam_decoder, cbam_skip = self._resolve_cbam_mode(
+            cbam_mode, cbam_encoder, cbam_decoder, cbam_skip
+        )
+        self.cbam_mode = cbam_mode
         self._cbam_flags = (cbam_encoder, cbam_decoder, cbam_skip)
+        self.init_seed = int(init_seed)
         super().__init__(init_seed=init_seed)
         self.cbam_reduction = cbam_reduction
         self._build_cbam_modules(cbam_encoder, cbam_decoder, cbam_skip, cbam_reduction)
 
+    @staticmethod
+    def _resolve_cbam_mode(mode, cbam_encoder, cbam_decoder, cbam_skip):
+        if mode == "adaptive":
+            return False, True, True
+        if mode == "skip":
+            return False, False, True
+        if mode == "decoder":
+            return False, True, False
+        if mode == "encoder":
+            return True, False, False
+        if mode == "enc_dec":
+            return True, True, True
+        if mode == "manual":
+            return cbam_encoder, cbam_decoder, cbam_skip
+        raise ValueError(
+            "Unsupported cbam_mode. Choose from "
+            "['adaptive', 'skip', 'decoder', 'encoder', 'enc_dec', 'manual']."
+        )
+
     def _build_cbam_modules(self, encoder, decoder, skip, reduction):
         ch = self.state  # [64, 64, 128, 256, 512]
-        if encoder:
-            self.cbam_enc = nn.ModuleList([
-                CBAM(ch[0], reduction),  # enc0:  64ch  H/2
-                CBAM(ch[1], reduction),  # enc1:  64ch  H/4
-                CBAM(ch[2], reduction),  # enc2: 128ch  H/8
-                CBAM(ch[3], reduction),  # enc3: 256ch  H/16
-                CBAM(ch[4], reduction),  # enc4: 512ch  H/32
-            ])
-        if skip:
-            c_skip = [ch[3], ch[2], ch[1], ch[0]]  # From deep to shallow
-            self.cbam_skip = nn.ModuleList([
-                CBAM(c_skip[0], reduction),  # skip x4: 256ch
-                CBAM(c_skip[1], reduction),  # skip x3: 128ch
-                CBAM(c_skip[2], reduction),  # skip x2:  64ch
-                CBAM(c_skip[3], reduction),  # skip x1:  64ch
-            ])
-        if decoder:
-            c_dec = [ch[2], ch[1], ch[1], ch[0]]  # 128, 64, 64, 64
-            self.cbam_dec = nn.ModuleList([
-                CBAM(c_dec[0], reduction),  # after up2 → 128ch
-                CBAM(c_dec[1], reduction),  # after up3 →  64ch
-                CBAM(c_dec[2], reduction),  # after up4 →  64ch
-                CBAM(c_dec[3], reduction),  # after up5 →  64ch
-            ])
+        # v2: fork RNG so CBAM init is reproducible without leaking state
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(self.init_seed)
+
+            if encoder:
+                self.cbam_enc = nn.ModuleList([
+                    CBAM(ch[0], reduction),  # enc0:  64ch  H/2
+                    CBAM(ch[1], reduction),  # enc1:  64ch  H/4
+                    CBAM(ch[2], reduction),  # enc2: 128ch  H/8
+                    CBAM(ch[3], reduction),  # enc3: 256ch  H/16
+                    CBAM(ch[4], reduction),  # enc4: 512ch  H/32
+                ])
+            if skip:
+                c_skip = [ch[3], ch[2], ch[1], ch[0]]  # deep → shallow
+                self.cbam_skip = nn.ModuleList([
+                    CBAM(c_skip[0], reduction),  # skip x4: 256ch
+                    CBAM(c_skip[1], reduction),  # skip x3: 128ch
+                    CBAM(c_skip[2], reduction),  # skip x2:  64ch
+                    CBAM(c_skip[3], reduction),  # skip x1:  64ch
+                ])
+            if decoder:
+                c_dec = [ch[2], ch[1], ch[1], ch[0]]  # 128, 64, 64, 64
+                self.cbam_dec = nn.ModuleList([
+                    CBAM(c_dec[0], reduction),  # after up2 → 128ch
+                    CBAM(c_dec[1], reduction),  # after up3 →  64ch
+                    CBAM(c_dec[2], reduction),  # after up4 →  64ch
+                    CBAM(c_dec[3], reduction),  # after up5 →  64ch
+                ])
 
     def forward(self, x, gts=None):
         cbam_enc, cbam_dec, cbam_skip = self._cbam_flags

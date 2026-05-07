@@ -1,5 +1,8 @@
 """Task 1 verification with dynamic checks against real source imagery."""
 import os
+import subprocess
+import sys
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
@@ -10,6 +13,7 @@ from _task1_common import (
     TILE_SIZE,
     TRAIN_RATIO,
     actual_split_positions,
+    choose_val_block,
     collect_patch_records,
     expected_positions,
     expected_split_positions,
@@ -20,6 +24,20 @@ from _task1_common import (
     patch_window_overlap,
     source_shape,
 )
+
+TEST_DIR = Path(__file__).resolve().parent
+CODE_DIR = TEST_DIR.parent.parent / "code"
+
+
+def ensure_baseline_dataset():
+    subprocess.run(
+        [sys.executable, str(CODE_DIR / "step1_crop_dataset.py"), "--train-stride", "512"],
+        cwd=str(CODE_DIR),
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=1800,
+    )
 
 
 def test_source_dimensions_match():
@@ -128,11 +146,12 @@ def test_split_counts_and_assignment_match_strategy():
     expected_train, expected_val = expected_split_positions()
     actual_train = actual_split_positions("train")
     actual_val = actual_split_positions("val")
+    val_block = choose_val_block()
 
     total = len(expected_train) + len(expected_val)
     assert total == len(expected_positions())
-    assert len(expected_train) == int(total * TRAIN_RATIO)
-    assert len(expected_val) == total - len(expected_train)
+    assert len(expected_val) == val_block["tile_count"]
+    assert len(expected_train) == total - len(expected_val)
     assert actual_train == expected_train, (
         "Train assignment differs from expected deterministic split strategy: "
         f"missing={sorted(expected_train - actual_train)[:10]}, "
@@ -186,6 +205,7 @@ def test_no_cross_split_physical_overlap():
 
 
 if __name__ == "__main__":
+    ensure_baseline_dataset()
     test_source_dimensions_match()
     test_all_patches_512x512()
     test_image_label_pairing()

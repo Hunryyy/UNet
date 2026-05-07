@@ -15,17 +15,23 @@ class MyDataset(Dataset):
         self.std = std
         self.is_train = is_train
         self.seed = int(seed)
-        self.ids = sorted(os.listdir(imgs_dir))
+        self.epoch = 0
+        self.ids = sorted(
+            name for name in os.listdir(imgs_dir) if name.lower().endswith(".png")
+        )
 
         logging.info(f"Creating dataset with {len(self.ids)} examples")
 
     def __len__(self):
         return len(self.ids)
 
+    def set_epoch(self, epoch):
+        self.epoch = int(epoch)
+
     def _augment(self, img_np, mask_np, index):
-        # Deterministic per-sample geometric augmentation keeps image/mask
-        # perfectly synchronized and makes the baseline reproducible.
-        rng = np.random.default_rng(self.seed + int(index))
+        # Keep image/mask perfectly synchronized, but vary augmentation across
+        # epochs so the baseline sees more geometric diversity.
+        rng = np.random.default_rng(self.seed + 1000003 * self.epoch + int(index))
         rot_k = int(rng.integers(0, 4))
         do_vflip = bool(rng.integers(0, 2))
         do_hflip = bool(rng.integers(0, 2))

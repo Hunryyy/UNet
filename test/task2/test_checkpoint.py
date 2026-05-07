@@ -16,7 +16,7 @@ import tempfile
 import numpy as np
 import torch
 
-from _task2_common import CODE_DIR
+from _task2_common import CODE_DIR, ensure_baseline_dataset_rebuilt
 from unet_model import Res34UNet_light
 
 SEED = 42
@@ -34,6 +34,7 @@ def set_seed(seed):
 
 def main():
     os.chdir(CODE_DIR)
+    ensure_baseline_dataset_rebuilt()
 
     print("=" * 60)
     print("TEST 3: Checkpoint save/load consistency")

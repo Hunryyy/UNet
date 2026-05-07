@@ -30,7 +30,7 @@ def build_command(output_root, exp_ids, batch_size):
         "--exp-ids",
         exp_ids,
         "--checkpoint",
-        "./checkpoints/UNet_best.pth",
+        "./checkpoints/UNet_res34_best.pth",
         "--test-image",
         "img_test.png",
         "--test-label",

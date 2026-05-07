@@ -28,24 +28,17 @@ def _register_models():
     try:
         from unet_cbam import Res34UNet_CBAM  # noqa: E402
 
-        MODEL_REGISTRY["res34_cbam_enc_dec"] = Res34UNet_CBAM
+        MODEL_REGISTRY["res34_cbam_enc_dec"] = lambda **kw: Res34UNet_CBAM(
+            cbam_mode="adaptive", **kw,
+        )
         MODEL_REGISTRY["res34_cbam_enc"] = lambda **kw: Res34UNet_CBAM(
-            cbam_encoder=True,
-            cbam_decoder=False,
-            cbam_skip=False,
-            **kw,
+            cbam_mode="encoder", **kw,
         )
         MODEL_REGISTRY["res34_cbam_dec"] = lambda **kw: Res34UNet_CBAM(
-            cbam_encoder=False,
-            cbam_decoder=True,
-            cbam_skip=False,
-            **kw,
+            cbam_mode="decoder", **kw,
         )
         MODEL_REGISTRY["res34_cbam_skip"] = lambda **kw: Res34UNet_CBAM(
-            cbam_encoder=False,
-            cbam_decoder=False,
-            cbam_skip=True,
-            **kw,
+            cbam_mode="skip", **kw,
         )
     except ImportError:
         pass
@@ -63,9 +56,15 @@ def _register_models():
             key = backbone.replace("-", "_").replace(".", "_")
 
             def _make(backbone_name=backbone):
-                return lambda **kw: EfficientUNet(backbone=backbone_name, **kw)
+                # pretrained=False: weights come from the checkpoint, not ImageNet
+                return lambda **kw: EfficientUNet(
+                    backbone=kw.pop("backbone", backbone_name), pretrained=False, **kw,
+                )
 
             MODEL_REGISTRY[key] = _make()
+        MODEL_REGISTRY["efficientnet_auto"] = lambda **kw: EfficientUNet(
+            backbone=kw.pop("backbone", "adaptive"), pretrained=False, **kw,
+        )
     except ImportError:
         pass
 
@@ -88,7 +87,7 @@ _STD_ARRAY = np.asarray(DATA_STD, dtype=np.float32).reshape(1, 1, 1, 3)
 
 TEST_IMAGE = "img_test.png"
 TEST_LABEL = "label_test.png"
-DEFAULT_CHECKPOINT = "./checkpoints/UNet_best.pth"
+DEFAULT_CHECKPOINT = "./checkpoints/UNet_res34_best.pth"
 
 OUTPUT_PREDICT = "predict.png"
 OUTPUT_VIS = "visualization.png"
@@ -138,6 +137,27 @@ def _load_state_dict(path, device):
         return torch.load(path, map_location=device, weights_only=True)
     except TypeError:
         return torch.load(path, map_location=device)
+
+
+def _history_path_from_checkpoint(checkpoint_path):
+    ckpt = Path(checkpoint_path)
+    name = ckpt.name
+    if name.endswith("_best.pth"):
+        history_name = name[:-len("_best.pth")] + "_history.json"
+        return ckpt.with_name(history_name)
+    return None
+
+
+def load_threshold_from_history(checkpoint_path, fallback=THRESHOLD):
+    history_path = _history_path_from_checkpoint(checkpoint_path)
+    if history_path is None or not history_path.is_file():
+        return float(fallback)
+
+    with open(history_path, "r", encoding="utf-8") as f:
+        history = json.load(f)
+
+    threshold = history.get("best_threshold", fallback)
+    return float(threshold)
 
 
 def build_model(model_type, device, **kwargs):
@@ -678,6 +698,15 @@ def main(args):
     if not os.path.isfile(ckpt_path):
         raise FileNotFoundError(f"Checkpoint not found: {ckpt_path}")
 
+    if args.use_history_threshold and args.threshold is None:
+        args.threshold = load_threshold_from_history(ckpt_path, fallback=THRESHOLD)
+        logging.info("Threshold loaded from training history: %.4f", args.threshold)
+    elif args.threshold is None:
+        args.threshold = float(THRESHOLD)
+        logging.info("Using default threshold: %.4f", args.threshold)
+    else:
+        logging.info("Threshold set explicitly: %.4f", args.threshold)
+
     image, label, _, _ = _load_image_and_label(args.test_image, args.test_label)
     logging.info("Test image: %s  dtype=%s", image.shape, image.dtype)
     if label is not None:
@@ -722,7 +751,7 @@ if __name__ == "__main__":
     parser.add_argument("--fusion", choices=["uniform", "gaussian"], default="gaussian")
     parser.add_argument("--tile-size", type=int, default=TILE_SIZE)
     parser.add_argument("--stride", type=int, default=None)
-    parser.add_argument("--threshold", type=float, default=THRESHOLD)
+    parser.add_argument("--threshold", type=float, default=None)
     parser.add_argument("--checkpoint", default=DEFAULT_CHECKPOINT)
     parser.add_argument(
         "--model-type",
@@ -733,6 +762,11 @@ if __name__ == "__main__":
     parser.add_argument("--test-label", default=TEST_LABEL)
     parser.add_argument("--output-dir", default="./outputs")
     parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument(
+        "--use-history-threshold",
+        action="store_true",
+        help="Load best_threshold from the paired *_history.json next to the checkpoint.",
+    )
     parser.add_argument("--no-save-prob", action="store_true")
     parser.add_argument("--no-save-vis", action="store_true")
     parser.add_argument(
