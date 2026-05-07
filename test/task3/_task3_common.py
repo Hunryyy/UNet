@@ -18,7 +18,7 @@ CODE_DIR = REPO_DIR / "code"
 
 TEST_IMAGE_PATH = CODE_DIR / "img_test.png"
 TEST_LABEL_PATH = CODE_DIR / "label_test.png"
-CHECKPOINT_PATH = CODE_DIR / "checkpoints" / "UNet_best.pth"
+CHECKPOINT_PATH = CODE_DIR / "checkpoints" / "UNet_res34_best.pth"
 WEIGHT_PATH = CODE_DIR / "weight" / "resnet34-b627a593.pth"
 
 OFFICIAL_EXPERIMENTS = [
@@ -61,7 +61,10 @@ def load_test_image_shape():
 
 @lru_cache(maxsize=1)
 def load_experiment_records():
-    return load_json(TEST_DIR / "experiment_records.json")
+    path = TEST_DIR / "experiment_records.json"
+    if not path.is_file():
+        return []
+    return load_json(path)
 
 
 def official_dir(exp_id):
@@ -70,16 +73,22 @@ def official_dir(exp_id):
 
 def load_official_artifacts(exp_id):
     exp_dir = official_dir(exp_id)
+    results_path = exp_dir / "predict_results.json"
+    predict_path = exp_dir / "predict.png"
+    prob_path = exp_dir / "predict_prob.npy"
+    vis_path = exp_dir / "visualization.png"
+    if not (results_path.is_file() and predict_path.is_file() and prob_path.is_file() and vis_path.is_file()):
+        return None
     return {
         "dir": exp_dir,
-        "results_path": exp_dir / "predict_results.json",
-        "predict_path": exp_dir / "predict.png",
-        "prob_path": exp_dir / "predict_prob.npy",
-        "vis_path": exp_dir / "visualization.png",
-        "results": load_json(exp_dir / "predict_results.json"),
-        "predict": io.imread(str(exp_dir / "predict.png")),
-        "prob": np.load(str(exp_dir / "predict_prob.npy")),
-        "vis": io.imread(str(exp_dir / "visualization.png")),
+        "results_path": results_path,
+        "predict_path": predict_path,
+        "prob_path": prob_path,
+        "vis_path": vis_path,
+        "results": load_json(results_path),
+        "predict": io.imread(str(predict_path)),
+        "prob": np.load(str(prob_path)),
+        "vis": io.imread(str(vis_path)),
     }
 
 
