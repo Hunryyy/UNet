@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore")
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, TEST_DIR)
 
-from _task2_common import CODE_DIR, make_dataset_subset, pushd
+from _task2_common import CODE_DIR, ensure_baseline_dataset_rebuilt, make_dataset_subset, pushd
 import step2_train
 from unet_model import Res34UNet_light
 
@@ -31,6 +31,7 @@ def main():
     print("=" * 60)
     print("TEST 9: Training reproducibility")
     print("=" * 60)
+    ensure_baseline_dataset_rebuilt()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -60,6 +61,13 @@ def main():
     assert histories[0] == histories[1], (
         "Same-seed runs produced different histories. "
         "The baseline is not reproducible yet."
+    )
+    assert histories[0]["selection_metric"] == "calibrated_miou"
+    assert len(histories[0]["val_iou_fixed"]) == len(histories[0]["val_iou"])
+    assert len(histories[0]["val_best_threshold"]) == len(histories[0]["val_iou"])
+    assert "best_threshold" in histories[0], "Threshold calibration result missing from history"
+    assert 0.2 <= histories[0]["best_threshold"] <= 0.8, (
+        f"Calibrated threshold out of expected range: {histories[0]['best_threshold']}"
     )
 
     print("\n" + "=" * 60)

@@ -16,7 +16,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from _task2_common import CODE_DIR, DATA_MEAN, DATA_STD
+from _task2_common import CODE_DIR, DATA_MEAN, DATA_STD, ensure_baseline_dataset_rebuilt
 from dataset import MyDataset
 from unet_model import Res34UNet_light
 
@@ -26,6 +26,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def main():
     os.chdir(CODE_DIR)
+    ensure_baseline_dataset_rebuilt()
 
     print("=" * 60)
     print("TEST 2: Shape / dtype / device verification")

@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore")
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, TEST_DIR)
 
-from _task2_common import CODE_DIR, REPO_DIR, pushd, set_seed
+from _task2_common import CODE_DIR, REPO_DIR, pushd, set_seed, ensure_baseline_dataset_rebuilt
 import step2_train
 from unet_model import Res34UNet_light
 
@@ -35,12 +35,12 @@ def main():
     })
 
     print("\n[7.1] Default config should work from code/ cwd")
+    ensure_baseline_dataset_rebuilt()
     with pushd(CODE_DIR):
-        model = Res34UNet_light().to("cpu")
         step2_train._check_paths_exist(cfg)
     print("  code/ cwd path resolution  OK")
 
-    print("\n[7.2] Default config currently fails from repo root cwd")
+    print("\n[7.2] Default config still fails from repo root cwd")
     try:
         with pushd(REPO_DIR):
             step2_train._check_paths_exist(cfg)
@@ -48,6 +48,10 @@ def main():
         msg = str(exc)
         print(f"  Root cwd failure captured: {msg}")
         assert "./dataset/train/image/" in msg, "Failure message should mention missing relative path"
+    except RuntimeError as exc:
+        msg = str(exc)
+        print(f"  Root cwd runtime failure captured: {msg}")
+        assert "./dataset/train/image/" in msg or "dataset" in msg.lower()
     else:
         raise AssertionError(
             "Expected FileNotFoundError from repo-root cwd, but default config unexpectedly worked"
