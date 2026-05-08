@@ -1,0 +1,19 @@
+# =============================================================================
+# UNet Semantic Segmentation for Remote Sensing Building Extraction
+# =============================================================================
+# Supports both CPU and GPU (CUDA) environments.
+#
+# Install CPU-only PyTorch:
+#   pip install -r requirements.txt
+#
+# Install GPU (CUDA) PyTorch (recommended for reasonable training time):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#   pip install -r requirements.txt
+# =============================================================================
+
+numpy>=1.24,<2
+Pillow>=10.0
+scikit-image>=0.21
+tqdm>=4.65
+torch>=2.1
+torchvision>=0.16
